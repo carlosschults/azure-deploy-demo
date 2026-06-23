@@ -34,7 +34,20 @@
             </tr>
         }
         <tr>
-            <th>Key Vault secret</th>
+            <th>Config Non-Sensitive Value</th>
+            <td>
+                @if (ViewData["Value"]?.ToString() == "Not found")
+                {
+                    <span class="badge bg-danger">Not found ✗</span>
+                }
+                else
+                {
+                    <span>@ViewData["Value"]</span>
+                }
+            </td>
+        </tr>
+        <tr>
+            <th>Config Secret</th>
             <td>
                 @if (ViewData["Secret"]?.ToString() == "Not found")
                 {

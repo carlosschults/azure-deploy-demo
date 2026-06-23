@@ -17,8 +17,8 @@ namespace AzureDemo.Controllers
         {
             ViewData["Environment"] = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "Unknown";
             ViewData["Slot"] = Environment.GetEnvironmentVariable("WEBSITE_SLOT_NAME") ?? "local";
-            ViewData["SecretLoaded"] = !string.IsNullOrEmpty(_configuration["DemoSecret"]);
-            ViewData["Secret"] = _configuration["DemoSecret"] ?? "Not found";
+            ViewData["Value"] = _configuration["MyConfig:NormalValue"] ?? "Not found";
+            ViewData["Secret"] = _configuration["MyConfig:SecretValue"] ?? "Not found";
             return View();
         }
 
