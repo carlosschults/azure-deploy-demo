@@ -24,7 +24,8 @@ namespace AzureDemo
 
             app.UseAuthorization();
 
-            app.MapStaticAssets();
+            //app.MapStaticAssets();
+            app.UseStaticFiles();
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}")

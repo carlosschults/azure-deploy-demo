@@ -1,10 +1,9 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
+    var environment = ViewData["Environment"]?.ToString();
     var slotName = ViewData["Slot"]?.ToString();
-    var isProduction = ViewData["Environment"]?.ToString() == "Production";
+    var isProd = environment == "Prod";
 }
-
-
 
 <div class="text-center">
     <h1 class="display-4">Azure App Services Demo</h1>
@@ -12,13 +11,13 @@
     <table class="table table-bordered w-50 mx-auto mt-4">
         <tr>
             <th>Environment</th>
-            <td>@ViewData["Environment"]</td>
+            <td>@environment</td>
         </tr>
         <tr>
             <th>Slot</th>
             <td>@slotName</td>
         </tr>
-        @if (isProduction)
+        @if (isProd)
         {
             <tr>
                 <th>Active slot</th>
