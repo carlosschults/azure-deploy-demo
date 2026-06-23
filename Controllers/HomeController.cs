@@ -6,8 +6,19 @@ namespace AzureDemo.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly IConfiguration _configuration;
+
+        public HomeController(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
+
         public IActionResult Index()
         {
+            ViewData["Environment"] = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "Unknown";
+            ViewData["Slot"] = Environment.GetEnvironmentVariable("WEBSITE_SLOT_NAME") ?? "local";
+            ViewData["SecretLoaded"] = !string.IsNullOrEmpty(_configuration["DemoSecret"]);
+            ViewData["Secret"] = _configuration["DemoSecret"] ?? "Not found";
             return View();
         }
 

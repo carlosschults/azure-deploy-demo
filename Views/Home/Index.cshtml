@@ -1,8 +1,51 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
+    var slotName = ViewData["Slot"]?.ToString();
+    var isProduction = ViewData["Environment"]?.ToString() == "Production";
 }
 
+
+
 <div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+    <h1 class="display-4">Azure App Services Demo</h1>
+
+    <table class="table table-bordered w-50 mx-auto mt-4">
+        <tr>
+            <th>Environment</th>
+            <td>@ViewData["Environment"]</td>
+        </tr>
+        <tr>
+            <th>Slot</th>
+            <td>@slotName</td>
+        </tr>
+        @if (isProduction)
+        {
+            <tr>
+                <th>Active slot</th>
+                <td>
+                    @if (slotName == "production")
+                    {
+                        <span class="badge bg-success">Live</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">Staging</span>
+                    }
+                </td>
+            </tr>
+        }
+        <tr>
+            <th>Key Vault secret</th>
+            <td>
+                @if (ViewData["Secret"]?.ToString() == "Not found")
+                {
+                    <span class="badge bg-danger">Not found ✗</span>
+                }
+                else
+                {
+                    <code>@ViewData["Secret"]</code>
+                }
+            </td>
+        </tr>
+    </table>
 </div>
