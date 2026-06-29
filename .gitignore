@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+
+*.PublishSettings
+
 # dotenv files
 .env
 
