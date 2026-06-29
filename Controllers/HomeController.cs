@@ -19,6 +19,7 @@ namespace AzureDemo.Controllers
             ViewData["Slot"] = Environment.GetEnvironmentVariable("WEBSITE_SLOT_NAME") ?? "local";
             ViewData["Value"] = _configuration["MyConfig:NormalValue"] ?? "Not found";
             ViewData["Secret"] = _configuration["MyConfig:SecretValue"] ?? "Not found";
+            ViewData["DotNetVersion"] = Environment.Version.ToString();
             return View();
         }
 
