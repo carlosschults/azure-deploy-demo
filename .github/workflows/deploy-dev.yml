@@ -1,0 +1,59 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    name: Build, Push, and Deploy
+    runs-on: ubuntu-latest
+    environment: Dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate tags
+        id: tags
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          DATE=$(date +'%Y%m%d')
+          RUN=${{ github.run_number }}
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "timestamp=${DATE}.build${RUN}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            carlosschults/azuredemo:${{ steps.tags.outputs.sha }}
+            carlosschults/azuredemo:${{ steps.tags.outputs.timestamp }}
+            carlosschults/azuredemo:dev-latest
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-Dev
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_DEV }}
+          images: carlosschults/azuredemo:${{ steps.tags.outputs.sha }}
+
+      - name: Create Git tag
+        run: |
+          TAG="dev-${{ steps.tags.outputs.timestamp }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $TAG
+          git push origin $TAG

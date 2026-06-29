@@ -1,0 +1,53 @@
+name: Create Hotfix Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to hotfix
+        required: true
+        type: choice
+        options:
+          - QA
+          - Prod
+
+permissions:
+  contents: write
+
+jobs:
+  create-hotfix:
+    name: Create hotfix branch for ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find latest tag for environment
+        id: find_tag
+        run: |
+          ENV=$(echo "${{ github.event.inputs.environment }}" | tr '[:upper:]' '[:lower:]')
+          LATEST_TAG=$(git tag --list "${ENV}-*" --sort=-version:refname | head -1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found for environment ${{ github.event.inputs.environment }}"
+            exit 1
+          fi
+
+          echo "tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Latest tag found: ${LATEST_TAG}"
+
+      - name: Create hotfix branch
+        run: |
+          DATE=$(date +'%Y%m%d')
+          RUN=${{ github.run_number }}
+          BRANCH="hotfix/${DATE}.build${RUN}"
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git checkout -b $BRANCH ${{ steps.find_tag.outputs.tag }}
+          git push origin $BRANCH
+
+          echo "Created branch ${BRANCH} from tag ${{ steps.find_tag.outputs.tag }}"

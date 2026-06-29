@@ -1,0 +1,109 @@
+name: Deploy Hotfix
+
+on:
+  push:
+    branches:
+      - 'hotfix/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-deploy:
+    name: Build and Deploy Hotfix
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine target environment
+        id: env
+        run: |
+          # Find the most recent environment tag reachable from this commit.
+          # This tells us which environment the hotfix branch was created from.
+          PROD_TAG=$(git tag --list 'prod-*' --sort=-version:refname | head -1)
+          QA_TAG=$(git tag --list 'qa-*' --sort=-version:refname | head -1)
+
+          PROD_DATE=$(echo $PROD_TAG | sed 's/prod-//')
+          QA_DATE=$(echo $QA_TAG | sed 's/qa-//')
+
+          # Check if the branch was cut from a prod tag
+          if git merge-base --is-ancestor $PROD_TAG HEAD 2>/dev/null; then
+            echo "environment=Prod" >> $GITHUB_OUTPUT
+            echo "Targeting Prod environment"
+          else
+            echo "environment=QA" >> $GITHUB_OUTPUT
+            echo "Targeting QA environment"
+          fi
+
+      - name: Generate tags
+        id: tags
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          DATE=$(date +'%Y%m%d')
+          RUN=${{ github.run_number }}
+          ENV=$(echo "${{ steps.env.outputs.environment }}" | tr '[:upper:]' '[:lower:]')
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "timestamp=${DATE}.build${RUN}" >> $GITHUB_OUTPUT
+          echo "env_lower=${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            carlosschults/azuredemo:${{ steps.tags.outputs.sha }}
+            carlosschults/azuredemo:${{ steps.tags.outputs.timestamp }}
+            carlosschults/azuredemo:${{ steps.tags.outputs.env_lower }}-latest
+
+      - name: Deploy to QA
+        if: steps.env.outputs.environment == 'QA'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-QA
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_QA }}
+          images: carlosschults/azuredemo:${{ steps.tags.outputs.sha }}
+
+      - name: Deploy to Prod staging slot
+        if: steps.env.outputs.environment == 'Prod'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-Prod
+          slot-name: staging
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PROD_STAGING }}
+          images: carlosschults/azuredemo:${{ steps.tags.outputs.sha }}
+
+      - name: Create Git tag
+        run: |
+          TAG="hotfix-${{ steps.tags.outputs.env_lower }}-${{ steps.tags.outputs.timestamp }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $TAG
+          git push origin $TAG
+
+      - name: Open PR to main
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref_name }}
+          base: main
+          title: "hotfix: Merge ${{ github.ref_name }} back to main"
+          body: |
+            This PR was created automatically by the hotfix deploy pipeline.
+
+            - **Hotfix branch**: `${{ github.ref_name }}`
+            - **Target environment**: `${{ steps.env.outputs.environment }}`
+            - **Image tag**: `${{ steps.tags.outputs.sha }}`
+
+            Please review and merge to ensure the fix is included in future releases.

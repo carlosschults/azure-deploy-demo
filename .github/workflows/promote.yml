@@ -1,0 +1,86 @@
+name: Promote to Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options:
+          - QA
+          - Prod
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    name: Promote ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate timestamp tag
+        id: tags
+        run: |
+          DATE=$(date +'%Y%m%d')
+          RUN=${{ github.run_number }}
+          ENV=$(echo "${{ github.event.inputs.environment }}" | tr '[:upper:]' '[:lower:]')
+          echo "timestamp=${DATE}.build${RUN}" >> $GITHUB_OUTPUT
+          echo "env_lower=${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine source tag
+        id: source
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "QA" ]; then
+            echo "tag=dev-latest" >> $GITHUB_OUTPUT
+            echo "rolling=qa-latest" >> $GITHUB_OUTPUT
+          else
+            echo "tag=qa-latest" >> $GITHUB_OUTPUT
+            echo "rolling=prod-latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Retag image
+        run: |
+          docker pull carlosschults/azuredemo:${{ steps.source.outputs.tag }}
+          docker tag carlosschults/azuredemo:${{ steps.source.outputs.tag }} carlosschults/azuredemo:${{ steps.source.outputs.rolling }}
+          docker tag carlosschults/azuredemo:${{ steps.source.outputs.tag }} carlosschults/azuredemo:${{ steps.tags.outputs.env_lower }}-${{ steps.tags.outputs.timestamp }}
+          docker push carlosschults/azuredemo:${{ steps.source.outputs.rolling }}
+          docker push carlosschults/azuredemo:${{ steps.tags.outputs.env_lower }}-${{ steps.tags.outputs.timestamp }}
+
+      - name: Deploy to QA
+        if: github.event.inputs.environment == 'QA'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-QA
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_QA }}
+          images: carlosschults/azuredemo:qa-latest
+
+      - name: Deploy to Prod staging slot
+        if: github.event.inputs.environment == 'Prod'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-Prod
+          slot-name: staging
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PROD_STAGING }}
+          images: carlosschults/azuredemo:prod-latest
+
+      - name: Create Git tag
+        run: |
+          TAG="${{ steps.tags.outputs.env_lower }}-${{ steps.tags.outputs.timestamp }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $TAG
+          git push origin $TAG
