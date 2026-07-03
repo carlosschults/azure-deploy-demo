@@ -1,0 +1,60 @@
+name: Deploy to Prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to Prod
+    runs-on: ubuntu-latest
+    environment: Prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate timestamp tag
+        id: tags
+        run: |
+          DATE=$(date +'%Y%m%d')
+          RUN=${{ github.run_number }}
+          echo "timestamp=${DATE}.build${RUN}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Fetch QA image and resolve digest
+        id: image
+        run: |
+          docker pull carlosschults/azuredemo:qa-latest
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' carlosschults/azuredemo:qa-latest)
+          echo "ref=${DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Azure App Service (Prod staging slot)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: AzureDemo-Prod
+          slot-name: staging
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PROD_STAGING }}
+          images: ${{ steps.image.outputs.ref }}
+
+      - name: Apply prod-latest rolling tag
+        run: |
+          docker tag carlosschults/azuredemo:qa-latest carlosschults/azuredemo:prod-latest
+          docker push carlosschults/azuredemo:prod-latest
+
+      - name: Create Git tag
+        run: |
+          TAG="prod-${{ steps.tags.outputs.timestamp }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $TAG
+          git push origin $TAG
