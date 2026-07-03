@@ -14,31 +14,7 @@
             <td>@ViewData["DotNetVersion"]</td>
         </tr>
         <tr>
-            <th>Environment</th>
-            <td>@environment</td>
-        </tr>
-        <tr>
-            <th>Slot</th>
-            <td>@slotName</td>
-        </tr>
-        @if (isProd)
-        {
-            <tr>
-                <th>Active slot</th>
-                <td>
-                    @if (slotName == "production")
-                    {
-                        <span class="badge bg-success">Live</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-warning text-dark">Staging</span>
-                    }
-                </td>
-            </tr>
-        }
-        <tr>
-            <th>Config Non-Sensitive Value</th>
+            <th>First Config Non-Sensitive Value</th>
             <td>
                 @if (ViewData["Value"]?.ToString() == "Not found")
                 {
@@ -47,6 +23,19 @@
                 else
                 {
                     <span>@ViewData["Value"]</span>
+                }
+            </td>
+        </tr>
+        <tr>
+            <th>Second Config Non-Sensitive Value</th>
+            <td>
+                @if (ViewData["ValueTopLevel"]?.ToString() == "Not found")
+                {
+                    <span class="badge bg-danger">Not found ✗</span>
+                }
+                else
+                {
+                    <span>@ViewData["ValueTopLevel"]</span>
                 }
             </td>
         </tr>
